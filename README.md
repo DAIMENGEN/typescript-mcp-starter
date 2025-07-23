@@ -21,7 +21,7 @@ src/
   - **Streamable HTTP**: Modern transport via `/mcp`, supporting session-based communication.
 - **Tool Registration**:
   - Provides a sample `greeting` tool:
-    - Accepts [name](file://D:\AI\mcp\typescript-mcp-starter\node_modules\ollama\dist\shared\ollama.d792a03f.d.ts#L194-L194) as input (via `z.string()` validation).
+    - Accepts [name](file://C:\Users\menge\Desktop\workspace\typescript-mcp-starter\node_modules\ollama\dist\shared\ollama.d792a03f.d.ts#L194-L194) as input (via `z.string()` validation).
     - Returns a personalized greeting message.
 - **Session Management**:
   - Uses `sessionId` to track and manage client sessions.
@@ -30,7 +30,7 @@ src/
 #### Client ([client.ts](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts))
 
 - **Ollama Integration**:
-  - Uses `ollama` to run local AI models (e.g., `qwen3:32b`).
+  - Uses `ollama` to run local AI models (e.g., `qwen3:8b`).
 - **Tool Discovery**:
   - Automatically fetches and registers tools provided by the server via `listTools()`.
 - **Transport Flexibility**:
@@ -108,34 +108,37 @@ async processQuery(query: string) {
         },
     ];
     const response = await this.ollama.chat({
-        model: "qwen3:32b",
+        model: "qwen3:8b",
         messages,
         tools: this.tools,
+        stream: true,
     });
-    const toolCalls = response.message.tool_calls;
-    if (toolCalls && toolCalls.length > 0) {
-        for (const toolCall of toolCalls) {
-            const toolName = toolCall.function.name;
-            const toolArgs = toolCall.function.arguments;
-            console.log(`Calling tool: ${toolName} with args:`, toolArgs);
-            try {
-                const result = await this.client.callTool({
-                    name: toolName,
-                    arguments: toolArgs,
-                });
-                console.log(`Tool ${toolName} result:`, result);
-            } catch (error) {
-                console.error(`Error calling tool ${toolName}:`, error);
+    for await (const chunk of response) {
+        const content = chunk.message.content;
+        if (content !== undefined) {
+            if (content === "\n") {
+                process.stdout.write("\n");
+            } else {
+                process.stdout.write(content);
             }
         }
-    } else {
-        console.log("No tool calls found in response.");
-        console.log("Response message:", response.message.content);
+        if (chunk.message.tool_calls && chunk.message.tool_calls.length > 0) {
+            console.log("Tool calls:", chunk.message.tool_calls);
+            for (const toolCall of chunk.message.tool_calls) {
+                const toolName = toolCall.function.name;
+                const toolArgs = toolCall.function.arguments;
+                console.log(`Calling tool: ${toolName} with args:`, toolArgs);
+                try {
+                    const result = await this.client.callTool({
+                        name: toolName,
+                        arguments: toolArgs,
+                    });
+                    console.log(`Tool ${toolName} result:`, result);
+                } catch (error) {
+                    console.error(`Error calling tool ${toolName}:`, error);
+                }
+            }
+        }
     }
 }
 ```
-
-
----
-
-With these updates, the [README.md](file://D:\AI\mcp\typescript-mcp-starter\README.md) now accurately reflects the current implementation, architecture, and usage scenarios of the TypeScript MCP starter project.
