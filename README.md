@@ -1,53 +1,141 @@
 ## TypeScript MCP Starter Project
 
-This is a Model Context Protocol (MCP) sample project built with TypeScript that includes both client and server components, demonstrating how to build intelligent tool calling systems using the MCP protocol.
+This is a **Model Context Protocol (MCP)** sample project built with **TypeScript**, featuring both client and server components. It demonstrates how to build intelligent tool calling systems using the MCP protocol.
 
 ### Project Structure
 
 ```
 src/
-├── client.ts    # Client implementation
-└── server.ts    # Server implementation
+├── client.ts    # Client implementation with SSE and Streamable HTTP support
+└── server.ts    # Server implementation with tool registration and transport protocol support
 ```
 
 
 ### Core Features
 
-#### Server (server.ts)
+#### Server ([server.ts](file://D:\AI\mcp\typescript-mcp-starter\src\server.ts))
 
-- MCP server built on Express
-- Implements Server-Sent Events (SSE) transport protocol support
-- Provides a sample tool `greeting`:
-    - Takes user's name as parameter
-    - Returns a personalized greeting message
-- Supports two transport methods: SSE and Streamable HTTP (partially implemented)
+- **MCP Server Implementation**: Built on top of the Express framework.
+- **Transport Protocol Support**:
+  - **SSE (Server-Sent Events)**: For legacy clients via `/sse` and `/messages`.
+  - **Streamable HTTP**: Modern transport via `/mcp`, supporting session-based communication.
+- **Tool Registration**:
+  - Provides a sample `greeting` tool:
+    - Accepts [name](file://D:\AI\mcp\typescript-mcp-starter\node_modules\ollama\dist\shared\ollama.d792a03f.d.ts#L194-L194) as input (via `z.string()` validation).
+    - Returns a personalized greeting message.
+- **Session Management**:
+  - Uses `sessionId` to track and manage client sessions.
+  - Supports session initialization and cleanup.
 
-#### Client (client.ts)
+#### Client ([client.ts](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts))
 
-- Integrates Ollama to enable AI conversation capabilities
-- Connects to the MCP server via SSE protocol
-- Automatically discovers and registers tools provided by the server
-- Supports tool calling workflow:
-    - Sends user queries to AI
-    - Parses tool call requests from AI responses
-    - Executes appropriate tool calls
-    - Retrieves and processes tool execution results
+- **Ollama Integration**:
+  - Uses `ollama` to run local AI models (e.g., `qwen3:32b`).
+- **Tool Discovery**:
+  - Automatically fetches and registers tools provided by the server via `listTools()`.
+- **Transport Flexibility**:
+  - Supports both SSE and Streamable HTTP protocols:
+    - [connect_sse](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts#L59-L64)
+    - [connect_streamable](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts#L66-L71)
+- **Interactive CLI**:
+  - Accepts user input via command line.
+  - Processes queries using AI and executes tool calls when needed.
+  - Displays results or error messages.
 
 ### Workflow
 
-1. Start the server listening on `http://localhost:3000/sse`
-2. Client connects to the server and retrieves the list of available tools
-3. User inputs a query
-4. Client processes the query through Ollama and calls server tools when needed
-5. Tool execution results are returned to the client for processing
+1. **Start the Server**:
+  - Server listens on:
+    - `http://localhost:3000/sse` (SSE endpoint)
+    - `http://localhost:3000/mcp` (Streamable HTTP endpoint)
+2. **Client Connection**:
+  - Client connects via SSE or Streamable HTTP.
+  - Retrieves and registers available tools from the server.
+3. **User Input**:
+  - User types a query in the CLI.
+4. **AI Processing**:
+  - Query is sent to the AI model via Ollama.
+  - If a tool call is needed, it's parsed and executed.
+5. **Tool Execution**:
+  - Tool call is sent to the server.
+  - Result is returned to the client and displayed.
 
 ### Technical Features
 
-- Uses `@modelcontextprotocol/sdk` to implement MCP protocol communication
-- Integrates Ollama for local AI model invocation
-- Supports dynamic tool discovery and calling
-- Employs TypeScript for type safety
+- **MCP Protocol Support**: Uses `@modelcontextprotocol/sdk` for bidirectional communication.
+- **Local AI Inference**: Integrates with Ollama for running models locally.
+- **Dynamic Tool Discovery**: Tools are registered and used dynamically based on server responses.
+- **TypeScript Type Safety**: Ensures robust and maintainable code.
+- **Multiple Transport Options**: Supports both SSE and Streamable HTTP for flexibility.
 
 ### Use Cases
 
-This project serves as a foundational template for building AI assistant applications based on the MCP protocol. It can be extended with more tools and services to meet various business requirements.
+This project serves as a foundational template for building AI assistant applications based on the MCP protocol. It can be extended with:
+
+- Additional tools and services.
+- Integration with different AI backends.
+- Custom transport protocols or security enhancements.
+- Enterprise-grade deployment and monitoring.
+
+---
+
+### Example Code Snippets
+
+#### Registering a Tool on the Server
+
+```ts
+server.registerTool("greeting",
+    {
+        title: "Personalized Greeting Assistant Tool",
+        description: "Generates a warm and friendly greeting message based on the user's name.",
+        inputSchema: { name: z.string() }
+    },
+    async ({ name }) => ({
+        content: [{ type: "text", text: `Hello, ${name}! I'm Mengen.dai, your AI assistant. How can I assist you today? 😊` }]
+    })
+);
+```
+
+
+#### Processing Queries and Calling Tools on the Client
+
+```ts
+async processQuery(query: string) {
+    const messages: Message[] = [
+        {
+            role: "user",
+            content: query,
+        },
+    ];
+    const response = await this.ollama.chat({
+        model: "qwen3:32b",
+        messages,
+        tools: this.tools,
+    });
+    const toolCalls = response.message.tool_calls;
+    if (toolCalls && toolCalls.length > 0) {
+        for (const toolCall of toolCalls) {
+            const toolName = toolCall.function.name;
+            const toolArgs = toolCall.function.arguments;
+            console.log(`Calling tool: ${toolName} with args:`, toolArgs);
+            try {
+                const result = await this.client.callTool({
+                    name: toolName,
+                    arguments: toolArgs,
+                });
+                console.log(`Tool ${toolName} result:`, result);
+            } catch (error) {
+                console.error(`Error calling tool ${toolName}:`, error);
+            }
+        }
+    } else {
+        console.log("No tool calls found in response.");
+        console.log("Response message:", response.message.content);
+    }
+}
+```
+
+
+---
+
+With these updates, the [README.md](file://D:\AI\mcp\typescript-mcp-starter\README.md) now accurately reflects the current implementation, architecture, and usage scenarios of the TypeScript MCP starter project.
