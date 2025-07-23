@@ -33,20 +33,27 @@ const transports = {
 
 // Reusable handler for GET and DELETE requests
 const handleSessionRequest = async (req: express.Request, res: express.Response) => {
-    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    console.log(`[${req.method} /mcp] Method called, received message:`, req.body);
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
     if (!sessionId || !transports.streamable[sessionId]) {
-        res.status(400).send('Invalid or missing session ID');
+        res.status(400).send("Invalid or missing session ID");
         return;
     }
     const transport = transports.streamable[sessionId];
     await transport.handleRequest(req, res);
 };
 
+// Handle GET requests for server-to-client notifications via SSE
+app.get("/mcp", handleSessionRequest);
+
+// Handle DELETE requests for session termination
+app.delete("/mcp", handleSessionRequest);
+
 // Modern Streamable HTTP endpoint
-app.all("/mcp", async (req, res) => {
-    console.log("[ALL /mcp] Method called, received message:", req.body);
+app.post("/mcp", async (req, res) => {
     // Check for existing session ID
-    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    const sessionId = req.headers["mcp-session-id"] as string | undefined;
+    console.log(`[${req.method} /mcp] Session ID: ${sessionId} | Received message:`, req.body);
     let transport: StreamableHTTPServerTransport;
     if (sessionId && transports.streamable[sessionId]) {
         // Reuse existing transport
@@ -58,23 +65,21 @@ app.all("/mcp", async (req, res) => {
             onsessioninitialized: (sessionId) => {
                 // Store the transport by session ID
                 transports.streamable[sessionId] = transport;
-            },
-            // DNS rebinding protection is disabled by default for backwards compatibility. If you are running this server
-            // locally, make sure to set:
-            // enableDnsRebindingProtection: true,
-            // allowedHosts: ['127.0.0.1'],
+            }
         });
-        // Clean up transport when closed
+        // Clean up transport when StreamableHTTPServerTransport closed
         transport.onclose = () => {
             if (transport.sessionId) {
                 delete transports.streamable[transport.sessionId];
-                console.log(`Closed transport for sessionId: ${transport.sessionId}`);
+                console.log(`[${req.method} /mcp] Streamable HTTP connection closed. Removed transport for sessionId: ${transport.sessionId}`);
             }
         };
         // Connect to the MCP server
         await server.connect(transport);
+        console.log(`[${req.method} /mcp] Streamable HTTP connection established.`);
     } else {
         // Invalid request
+        console.log(`[${req.method} /mcp] Invalid request.`);
         res.status(400).json({
             jsonrpc: "2.0",
             error: {
@@ -89,12 +94,6 @@ app.all("/mcp", async (req, res) => {
     await transport.handleRequest(req, res, req.body);
 });
 
-// Handle GET requests for server-to-client notifications via SSE
-app.get("/mcp", handleSessionRequest);
-
-// Handle DELETE requests for session termination
-app.delete("/mcp", handleSessionRequest);
-
 // Legacy SSE endpoint for older clients
 app.get("/sse", async (req, res) => {
     console.log("[GET /sse] Method called, received message:", req.body);
@@ -102,10 +101,11 @@ app.get("/sse", async (req, res) => {
     transports.sse[transport.sessionId] = transport;
     res.on("close", () => {
         delete transports.sse[transport.sessionId];
-        console.log(`Closed transport for sessionId: ${transport.sessionId}`);
+        console.log(`[GET /sse] Connection closed. Removed transport for sessionId: ${transport.sessionId}`);
     });
     // Connect to the MCP server
     await server.connect(transport);
+    console.log(`[GET /sse] SSE connection established. sessionId: ${transport.sessionId}`);
 });
 
 // Legacy message endpoint for older clients
