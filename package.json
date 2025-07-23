@@ -1,0 +1,19 @@
+{
+  "type": "module",
+  "scripts": {
+    "build:client": "esbuild src/client.ts --bundle --platform=node --format=cjs --outfile=dist/client.cjs",
+    "build:server": "esbuild src/server.ts --bundle --platform=node --format=cjs --outfile=dist/server.cjs",
+    "build": "npm run build:client && npm run build:server"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.16.0",
+    "express": "^5.1.0",
+    "ollama": "^0.5.16"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.1.0",
+    "esbuild": "^0.25.8",
+    "typescript": "^5.8.3"
+  }
+}
