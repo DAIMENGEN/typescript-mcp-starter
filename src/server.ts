@@ -68,6 +68,7 @@ app.all("/mcp", async (req, res) => {
         transport.onclose = () => {
             if (transport.sessionId) {
                 delete transports.streamable[transport.sessionId];
+                console.log(`Closed transport for sessionId: ${transport.sessionId}`);
             }
         };
         // Connect to the MCP server
@@ -88,7 +89,11 @@ app.all("/mcp", async (req, res) => {
     await transport.handleRequest(req, res, req.body);
 });
 
+// Handle GET requests for server-to-client notifications via SSE
 app.get("/mcp", handleSessionRequest);
+
+// Handle DELETE requests for session termination
+app.delete("/mcp", handleSessionRequest);
 
 // Legacy SSE endpoint for older clients
 app.get("/sse", async (req, res) => {
@@ -97,6 +102,7 @@ app.get("/sse", async (req, res) => {
     transports.sse[transport.sessionId] = transport;
     res.on("close", () => {
         delete transports.sse[transport.sessionId];
+        console.log(`Closed transport for sessionId: ${transport.sessionId}`);
     });
     // Connect to the MCP server
     await server.connect(transport);
