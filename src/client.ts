@@ -2,19 +2,21 @@ import readline from "readline";
 import { Ollama, Tool, Message } from "ollama";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { SSEClientTransport } from "@modelcontextprotocol/sdk/client/sse.js";
+import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 class MCPClient {
     private client: Client;
     private ollama: Ollama;
-    private transport: SSEClientTransport | null = null;
     private tools: Tool[] = [];
+    private transport_sse: SSEClientTransport | null = null;
+    private transport_streamable: StreamableHTTPClientTransport | null = null;
 
     constructor() {
         this.ollama = new Ollama({ host: 'http://10.150.112.120:11434' });
         this.client = new Client({ name: "mcp-client-cli", version: "1.0.0" });
     }
 
-    properties( input: Record<string, any>): {
+    private properties( input: Record<string, any>): {
         [key: string]: {
             type?: string | string[];
             items?: any;
@@ -35,10 +37,7 @@ class MCPClient {
         return output;
     }
 
-    async connect() {
-        this.transport = new SSEClientTransport(new URL("http://localhost:3000/sse"));
-        await this.client.connect(this.transport);
-        console.log("Connected using SSE transport");
+    private async loadTools() {
         const toolsResult = await this.client.listTools();
         this.tools = toolsResult.tools.map((tool) => {
             console.log("Tool found:", tool.inputSchema);
@@ -58,6 +57,20 @@ class MCPClient {
         console.log("Connected to server with tools:", this.tools.map(tool => tool.function.name));
     }
 
+    async connect_sse() {
+        this.transport_sse = new SSEClientTransport(new URL("http://localhost:3000/sse"));
+        await this.client.connect(this.transport_sse);
+        console.log("Connected using SSE transport_sse");
+        await this.loadTools();
+    }
+
+    async connect_streamable() {
+        this.transport_streamable = new StreamableHTTPClientTransport(new URL("http://localhost:3000/mcp"));
+        await this.client.connect(this.transport_streamable);
+        console.log("Connected using Streamable HTTP transport_streamable");
+        await this.loadTools();
+    }
+
     async processQuery(query: string) {
         const messages: Message[] = [
             {
@@ -70,7 +83,6 @@ class MCPClient {
             messages,
             tools: this.tools,
         });
-        // console.log("Ollama response:", response.message.tool_calls);
         const toolCalls = response.message.tool_calls;
         if (toolCalls && toolCalls.length > 0) {
             for (const toolCall of toolCalls) {
@@ -96,10 +108,9 @@ class MCPClient {
 
 const main = async () => {
     const mcpClient = new MCPClient();
-
     try {
         console.log("Connecting to MCPClient...");
-        await mcpClient.connect();
+        await mcpClient.connect_sse();
         console.log("Connection established.");
         console.log('Type your queries below. Type "exit" or "quit" to stop.');
         const rl = readline.createInterface({
