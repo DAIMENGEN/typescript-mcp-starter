@@ -1,9 +1,9 @@
 import { z } from "zod";
 import express from "express";
 import { randomUUID } from "node:crypto";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js"
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 const server = new McpServer({
