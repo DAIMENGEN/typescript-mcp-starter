@@ -118,6 +118,34 @@ class MCPClient {
                             arguments: toolArgs,
                         });
                         console.log(`Tool ${toolName} result:`, result);
+                        if (Array.isArray(result.content)) {
+                            result.content.forEach((c) => {
+                                if (c.type === "text" && typeof c.text === "string") {
+                                    messages.push({
+                                        role: "user",
+                                        content: c.text,
+                                    });
+                                }
+                            });
+                        }
+                        const response = await this.ollama.chat({
+                            model: "qwen3:8b",
+                            messages,
+                            stream: true,
+                        });
+                        for await (const chunk of response) {
+                            const content = chunk.message.content;
+                            if (content !== undefined) {
+                                if (content === "\n") {
+                                    process.stdout.write("\n");
+                                } else {
+                                    process.stdout.write(content);
+                                }
+                            }
+                        }
+                        process.stdout.write("\n");
+                        process.stdout.write("\n");
+                        process.stdout.write("\n");
                     } catch (error) {
                         console.error(`Error calling tool ${toolName}:`, error);
                     }
@@ -155,9 +183,9 @@ const main = async () => {
                 return;
             }
             try {
-                console.log(`Processing query: "${input}"...`);
+                console.log(`Processing query: "${input}" at [${new Date().toISOString()}]`);
                 await mcpClient.processQuery(input);
-                console.log("Query processed successfully.\n");
+                console.log(`Successfully processed at [${new Date().toISOString()}]\n`);
             } catch (error) {
                 console.error("Error processing query:", error, "\n");
             }
