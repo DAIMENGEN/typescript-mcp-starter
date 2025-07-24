@@ -21,7 +21,7 @@ src/
   - **Streamable HTTP**: Modern transport via `/mcp`, supporting session-based communication.
 - **Tool Registration**:
   - Provides a sample `greeting` tool:
-    - Accepts [name](file://C:\Users\menge\Desktop\workspace\typescript-mcp-starter\node_modules\ollama\dist\shared\ollama.d792a03f.d.ts#L194-L194) as input (via `z.string()` validation).
+    - Accepts [name](file://D:\AI\mcp\typescript-mcp-starter\node_modules\ollama\dist\shared\ollama.d792a03f.d.ts#L194-L194) as input (via `z.string()` validation).
     - Returns a personalized greeting message.
 - **Session Management**:
   - Uses `sessionId` to track and manage client sessions.
@@ -35,8 +35,8 @@ src/
   - Automatically fetches and registers tools provided by the server via `listTools()`.
 - **Transport Flexibility**:
   - Supports both SSE and Streamable HTTP protocols:
-    - [connect_sse](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts#L59-L64)
-    - [connect_streamable](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts#L66-L71)
+    - [connect_sse](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts#L66-L74)
+    - [connect_streamable](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts#L76-L84)
 - **Interactive CLI**:
   - Accepts user input via command line.
   - Processes queries using AI and executes tool calls when needed.
@@ -84,16 +84,13 @@ This project serves as a foundational template for building AI assistant applica
 #### Registering a Tool on the Server
 
 ```ts
-server.registerTool("greeting",
-    {
-        title: "Personalized Greeting Assistant Tool",
-        description: "Generates a warm and friendly greeting message based on the user's name.",
-        inputSchema: { name: z.string() }
-    },
-    async ({ name }) => ({
-        content: [{ type: "text", text: `Hello, ${name}! I'm Mengen.dai, your AI assistant. How can I assist you today? 😊` }]
-    })
-);
+server.registerTool("greeting", {
+    title: "Personalized Greeting Assistant Tool",
+    description: "Generates a warm and friendly greeting message based on the user's name.",
+    inputSchema: { name: z.string() }
+}, async ({ name }) => ({
+    content: [{ type: "text", text: `Hello, ${name}! I'm Mengen.dai, your AI assistant. How can I assist you today? 😊` }]
+}));
 ```
 
 
@@ -134,6 +131,34 @@ async processQuery(query: string) {
                         arguments: toolArgs,
                     });
                     console.log(`Tool ${toolName} result:`, result);
+                    if (Array.isArray(result.content)) {
+                        result.content.forEach((c) => {
+                            if (c.type === "text" && typeof c.text === "string") {
+                                messages.push({
+                                    role: "user",
+                                    content: c.text,
+                                });
+                            }
+                        });
+                    }
+                    const response = await this.ollama.chat({
+                        model: "qwen3:8b",
+                        messages,
+                        stream: true,
+                    });
+                    for await (const chunk of response) {
+                        const content = chunk.message.content;
+                        if (content !== undefined) {
+                            if (content === "\n") {
+                                process.stdout.write("\n");
+                            } else {
+                                process.stdout.write(content);
+                            }
+                        }
+                    }
+                    process.stdout.write("\n");
+                    process.stdout.write("\n");
+                    process.stdout.write("\n");
                 } catch (error) {
                     console.error(`Error calling tool ${toolName}:`, error);
                 }
