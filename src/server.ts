@@ -1,24 +1,116 @@
 import { z } from "zod";
 import express from "express";
-import { randomUUID } from "node:crypto";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js"
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import {randomUUID} from "node:crypto";
+import {McpServer} from "@modelcontextprotocol/sdk/server/mcp.js";
+import {isInitializeRequest} from "@modelcontextprotocol/sdk/types.js"
+import {SSEServerTransport} from "@modelcontextprotocol/sdk/server/sse.js";
+import {StreamableHTTPServerTransport} from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+
+class ShuttleBus {
+    route: string;
+    departure: string;
+    destination: string;
+    time: string; // 使用 string 存储 "HH:mm" 格式时间，便于传参和显示
+
+    constructor(route: string, departure: string, destination: string, time: string) {
+        this.route = route;
+        this.departure = departure;
+        this.destination = destination;
+        this.time = time;
+    }
+
+    toString(): string {
+        return `路线 ${this.route}：从 ${this.departure} 出发，前往 ${this.destination}，发车时间：${this.time}`;
+    }
+
+    toLocalTime(): Date {
+        const [hour, minute] = this.time.split(':').map(Number);
+        const now = new Date();
+        now.setHours(hour, minute, 0, 0);
+        return now;
+    }
+}
+
+class ShuttleBusService {
+    private busList: ShuttleBus[] = [];
+
+    constructor() {
+        // 模拟班车数据
+        this.busList.push(new ShuttleBus("A1", "大门口", "5号楼", "08:00"));
+        this.busList.push(new ShuttleBus("A2", "1号楼", "食堂", "08:30"));
+        this.busList.push(new ShuttleBus("B1", "5号楼", "大门口", "17:45"));
+        this.busList.push(new ShuttleBus("C3", "3号楼", "停车场", "12:15"));
+        this.busList.push(new ShuttleBus("D1", "大门口", "2号楼", "09:10"));
+    }
+
+    getShuttleBusInfo(): string {
+        return this.busList.map(bus => bus.toString()).join('\n');
+    }
+
+    getShuttleBusInfoByTime(timeRange: string): string {
+        try {
+            const [startStr, endStr] = timeRange.split('-').map(s => s.trim());
+            const [startHour, startMinute] = startStr.split(':').map(Number);
+            const [endHour, endMinute] = endStr.split(':').map(Number);
+
+            const now = new Date();
+            const start = new Date(now);
+            const end = new Date(now);
+            start.setHours(startHour, startMinute, 0, 0);
+            end.setHours(endHour, endMinute, 0, 0);
+
+            const filtered = this.busList.filter(bus => {
+                const busTime = bus.toLocalTime();
+                return busTime >= start && busTime <= end;
+            });
+
+            if (filtered.length === 0) {
+                return '在指定时间段内没有找到班车信息。';
+            }
+
+            return filtered.map(bus => bus.toString()).join('\n');
+        } catch (error) {
+            return '时间格式错误，请使用格式：HH:mm-HH:mm，例如 08:00-12:00';
+        }
+    }
+}
+
+const shuttleBusService = new ShuttleBusService();
 
 const server = new McpServer({
     name: "mcp-server",
     version: "1.0.0"
 });
 
-server.registerTool("greeting",
+server.registerTool("getShuttleBusInfo",
     {
-        title: "Personalized Greeting Assistant Tool",
-        description: "Generates a warm and friendly greeting message based on the user's name.",
-        inputSchema: { name: z.string() }
+        title: "Shuttle Bus Schedule Tool",
+        description: "Provides all current shuttle bus schedules.",
     },
-    async ({ name }) => ({
-        content: [{ type: "text", text: `Hello, ${name}! I'm Mengen.dai, your AI assistant. How can I assist you today? 😊` }]
+    async ({name}) => ({
+        content: [
+            {
+                type: "text",
+                text: shuttleBusService.getShuttleBusInfo()
+            }
+        ]
+    })
+);
+
+server.registerTool(
+    "getShuttleBusInfoByTime",
+    {
+        title: "Time-based Shuttle Bus Query Tool",
+        description: "Retrieves shuttle bus schedules within a specified time (format: HH:mm).",
+        inputSchema: { time: z.string() },
+    },
+    async ({ time }) => ({
+        content: [
+            {
+                type: "text",
+                text: shuttleBusService.getShuttleBusInfoByTime(time),
+            },
+        ],
     })
 );
 
@@ -58,7 +150,7 @@ app.post("/mcp", async (req, res) => {
     if (sessionId && transports.streamable[sessionId]) {
         // Reuse existing transport
         transport = transports.streamable[sessionId];
-    } else if (!sessionId && isInitializeRequest(req.body)){
+    } else if (!sessionId && isInitializeRequest(req.body)) {
         // New initialization request
         transport = new StreamableHTTPServerTransport({
             sessionIdGenerator: () => randomUUID(),
