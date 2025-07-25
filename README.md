@@ -13,7 +13,7 @@ src/
 
 ### Core Features
 
-#### Server ([server.ts](file://D:\AI\mcp\typescript-mcp-starter\src\server.ts))
+#### Server ([server.ts](src/server.ts))
 
 - **MCP Server Implementation**: Built on top of the Express framework.
 - **Transport Protocol Support**:
@@ -21,13 +21,18 @@ src/
   - **Streamable HTTP**: Modern transport via `/mcp`, supporting session-based communication.
 - **Tool Registration**:
   - Provides a sample `greeting` tool:
-    - Accepts [name](file://D:\AI\mcp\typescript-mcp-starter\node_modules\ollama\dist\shared\ollama.d792a03f.d.ts#L194-L194) as input (via `z.string()` validation).
+    - Accepts name as input (via `z.string()` validation).
     - Returns a personalized greeting message.
+  - Provides [getShuttleBusInfo](file://D:\AI\mcp\typescript-mcp-starter\src\server.ts#L45-L47) tool:
+    - Returns all current shuttle bus schedules.
+  - Provides [getShuttleBusInfoByTime](file://D:\AI\mcp\typescript-mcp-starter\src\server.ts#L49-L74) tool:
+    - Accepts a time range (format: HH:mm-HH:mm) as input.
+    - Returns shuttle bus schedules within the specified time range.
 - **Session Management**:
   - Uses `sessionId` to track and manage client sessions.
   - Supports session initialization and cleanup.
 
-#### Client ([client.ts](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts))
+#### Client ([client.ts](src/client.ts))
 
 - **Ollama Integration**:
   - Uses `ollama` to run local AI models (e.g., `qwen3:8b`).
@@ -35,8 +40,8 @@ src/
   - Automatically fetches and registers tools provided by the server via `listTools()`.
 - **Transport Flexibility**:
   - Supports both SSE and Streamable HTTP protocols:
-    - [connect_sse](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts#L66-L74)
-    - [connect_streamable](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts#L76-L84)
+    - [connect_sse()](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts#L66-L74)
+    - [connect_streamable()](file://D:\AI\mcp\typescript-mcp-starter\src\client.ts#L76-L84)
 - **Interactive CLI**:
   - Accepts user input via command line.
   - Processes queries using AI and executes tool calls when needed.
@@ -45,20 +50,20 @@ src/
 ### Workflow
 
 1. **Start the Server**:
-  - Server listens on:
-    - `http://localhost:3000/sse` (SSE endpoint)
-    - `http://localhost:3000/mcp` (Streamable HTTP endpoint)
+- Server listens on:
+  - `http://localhost:3000/sse` (SSE endpoint)
+  - `http://localhost:3000/mcp` (Streamable HTTP endpoint)
 2. **Client Connection**:
-  - Client connects via SSE or Streamable HTTP.
-  - Retrieves and registers available tools from the server.
+- Client connects via SSE or Streamable HTTP.
+- Retrieves and registers available tools from the server.
 3. **User Input**:
-  - User types a query in the CLI.
+- User types a query in the CLI.
 4. **AI Processing**:
-  - Query is sent to the AI model via Ollama.
-  - If a tool call is needed, it's parsed and executed.
+- Query is sent to the AI model via Ollama.
+- If a tool call is needed, it's parsed and executed.
 5. **Tool Execution**:
-  - Tool call is sent to the server.
-  - Result is returned to the client and displayed.
+- Tool call is sent to the server.
+- Result is returned to the client and displayed.
 
 ### Technical Features
 
@@ -84,13 +89,37 @@ This project serves as a foundational template for building AI assistant applica
 #### Registering a Tool on the Server
 
 ```ts
-server.registerTool("greeting", {
-    title: "Personalized Greeting Assistant Tool",
-    description: "Generates a warm and friendly greeting message based on the user's name.",
-    inputSchema: { name: z.string() }
-}, async ({ name }) => ({
-    content: [{ type: "text", text: `Hello, ${name}! I'm Mengen.dai, your AI assistant. How can I assist you today? 😊` }]
-}));
+server.registerTool("getShuttleBusInfo",
+        {
+          title: "Shuttle Bus Schedule Tool",
+          description: "Provides all current shuttle bus schedules.",
+        },
+        async ({name}) => ({
+          content: [
+            {
+              type: "text",
+              text: shuttleBusService.getShuttleBusInfo()
+            }
+          ]
+        })
+);
+
+server.registerTool(
+        "getShuttleBusInfoByTime",
+        {
+          title: "Time-based Shuttle Bus Query Tool",
+          description: "Retrieves shuttle bus schedules within a specified time (format: HH:mm).",
+          inputSchema: { time: z.string() },
+        },
+        async ({ time }) => ({
+          content: [
+            {
+              type: "text",
+              text: shuttleBusService.getShuttleBusInfoByTime(time),
+            },
+          ],
+        })
+);
 ```
 
 
