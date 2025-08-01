@@ -54,12 +54,12 @@ class ShuttleBusService {
             });
 
             if (filtered.length === 0) {
-                return '在指定时间段内没有找到班车信息。';
+                return 'No shuttle bus information was found for the specified time period.';
             }
 
             return filtered.map(bus => bus.toString()).join('\n');
         } catch (error) {
-            return '时间格式错误，请使用格式：HH:mm-HH:mm，例如 08:00';
+            return 'The time format is incorrect. Please use the format HH:mm-HH:mm, for example 08:00-12:00.';
         }
     }
 }
