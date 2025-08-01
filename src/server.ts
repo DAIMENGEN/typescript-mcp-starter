@@ -47,21 +47,10 @@ class ShuttleBusService {
         return this.busList.map(bus => bus.toString()).join('\n');
     }
 
-    getShuttleBusInfoByTime(timeRange: string): string {
+    getShuttleBusInfoByTime(time: string): string {
         try {
-            const [startStr, endStr] = timeRange.split('-').map(s => s.trim());
-            const [startHour, startMinute] = startStr.split(':').map(Number);
-            const [endHour, endMinute] = endStr.split(':').map(Number);
-
-            const now = new Date();
-            const start = new Date(now);
-            const end = new Date(now);
-            start.setHours(startHour, startMinute, 0, 0);
-            end.setHours(endHour, endMinute, 0, 0);
-
             const filtered = this.busList.filter(bus => {
-                const busTime = bus.toLocalTime();
-                return busTime >= start && busTime <= end;
+                return bus.time === time;
             });
 
             if (filtered.length === 0) {
@@ -70,7 +59,7 @@ class ShuttleBusService {
 
             return filtered.map(bus => bus.toString()).join('\n');
         } catch (error) {
-            return '时间格式错误，请使用格式：HH:mm-HH:mm，例如 08:00-12:00';
+            return '时间格式错误，请使用格式：HH:mm-HH:mm，例如 08:00';
         }
     }
 }
